@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>德奧雪季之旅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   ⚙️ 設定區：只需要改這兩行（教學第 A3 步）
+   ============================================================ */
+const CONFIG = {
+  SUPABASE_URL: '',   // 例：'https://abcdxyz.supabase.co'
+  SUPABASE_KEY: ''    // 例：'sb_publishable_xxxx' 或 anon key（eyJ 開頭）
+};
+/* 兩行都留空 = 預覽模式：資料只存在自己的瀏覽器，不會共用 */
+</script>
+<style>
+:root{
+  --bg:#f4f1ec; --card:#fffdf9; --ink:#1f2a33; --muted:#6b7680; --line:#e4ded4;
+  --accent:#2f5d7c; --accent-soft:#e3edf3; --warm:#b5643c; --warm-soft:#f6e6dc;
+  --ok:#2e7d55; --ok-soft:#dff1e7; --todo:#b8860b; --todo-soft:#fbf0d3; --danger:#b23b3b;
+  --radius:14px; --shadow:0 1px 2px rgba(31,42,51,.06),0 4px 14px rgba(31,42,51,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Noto Sans TC',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px 110px}
+header.top{background:linear-gradient(160deg,#20435a,#2f5d7c 60%,#4b7a96);color:#fff;padding:22px 16px 26px;position:relative;overflow:hidden}
+header.top::after{content:"❄";position:absolute;right:-10px;top:-20px;font-size:140px;opacity:.08}
+.top-in{max-width:760px;margin:0 auto}
+.top h1{font-family:'Noto Serif TC',serif;font-size:24px;margin:0 0 2px;letter-spacing:.02em}
+.top .sub{opacity:.85;font-size:14px}
+.sync{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;background:rgba(255,255,255,.14);padding:3px 10px;border-radius:99px}
+.dot{width:8px;height:8px;border-radius:50%;background:#7fe0a6}
+.dot.local{background:#ffd27a}
+.top .meta-edit{position:absolute;right:16px;top:20px;background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:99px;padding:4px 12px;font-size:13px;cursor:pointer;z-index:1}
+h2.sec{font-family:'Noto Serif TC',serif;font-size:19px;margin:22px 0 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:20px;color:var(--accent)}
+.stat span{font-size:12px;color:var(--muted)}
+.daycard{cursor:pointer;display:flex;gap:14px;align-items:flex-start;transition:transform .1s}
+.daycard:active{transform:scale(.99)}
+.dnum{flex:none;width:52px;text-align:center;background:var(--accent-soft);border-radius:10px;padding:6px 0;color:var(--accent)}
+.dnum b{display:block;font-size:18px;line-height:1.1}
+.dnum small{font-size:11px}
+.dbody{flex:1;min-width:0}
+.dtitle{font-weight:700;margin:0 0 2px}
+.dmeta{font-size:13px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{font-size:12px;padding:2px 8px;border-radius:99px;background:#efebe4;color:#4b5560;white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.todo{background:var(--todo-soft);color:var(--todo)}
+.chip.city{background:var(--warm-soft);color:var(--warm)}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:5px;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:4px 9px;font-size:13px;border-radius:8px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.danger{color:var(--danger);border-color:#ecc}
+.btn:disabled{opacity:.5}
+.addbtn{width:100%;justify-content:center;border-style:dashed;color:var(--accent);padding:11px;background:transparent}
+.daytabs{display:flex;gap:6px;overflow-x:auto;padding:14px 0 4px;margin:0 -16px;padding-left:16px;padding-right:16px;scrollbar-width:none}
+.daytabs::-webkit-scrollbar{display:none}
+.dtab{flex:none;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:5px 10px;text-align:center;cursor:pointer;line-height:1.2}
+.dtab small{display:block;font-size:11px;color:var(--muted)}
+.dtab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dtab.on small{color:#d7e6ef}
+.dayhead h3{font-family:'Noto Serif TC',serif;font-size:20px;margin:2px 0 6px}
+.dayhead .summary{color:#3d4852;white-space:pre-wrap;margin:6px 0 0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.timeline{position:relative;padding-left:18px}
+.timeline::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.spot{position:relative}
+.spot::before{content:"";position:absolute;left:-18px;top:18px;width:12px;height:12px;border-radius:50%;background:var(--card);border:3px solid var(--accent)}
+.spot .time{font-size:12px;font-weight:700;color:var(--warm)}
+.spot .title{font-weight:700}
+.spot .note{font-size:14px;color:#46515b;white-space:pre-wrap;margin-top:2px}
+.spot .acts{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.mini{display:flex;gap:10px;align-items:center;padding:10px 12px}
+.mini .ic{font-size:22px}
+.label{font-size:12px;color:var(--muted);font-weight:500}
+.kv{display:grid;grid-template-columns:88px 1fr;gap:4px 10px;font-size:14px;margin:10px 0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;word-break:break-word}
+.links{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.stay h3,.trans h3{margin:0;font-size:17px}
+.status{border:0;border-radius:99px;padding:4px 12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.status.ok{background:var(--ok-soft);color:var(--ok)}
+.status.todo{background:var(--todo-soft);color:var(--todo)}
+.route{font-size:17px;font-weight:700;margin:4px 0}
+.route .arr{color:var(--muted);font-weight:400;margin:0 4px}
+.filters{display:flex;gap:6px;margin-bottom:12px}
+.filters .btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.dategroup{font-size:13px;font-weight:700;color:var(--muted);margin:16px 0 6px}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:rgba(255,253,249,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom);z-index:20}
+nav.tabs button{flex:1;max-width:190px;border:0;background:none;padding:9px 0 8px;cursor:pointer;color:var(--muted);font-size:12px}
+nav.tabs button .e{display:block;font-size:20px;line-height:1.2;filter:grayscale(.6);opacity:.8}
+nav.tabs button.on{color:var(--accent);font-weight:700}
+nav.tabs button.on .e{filter:none;opacity:1}
+.empty{text-align:center;color:var(--muted);padding:28px 10px}
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(20,28,35,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+.modal{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:640px){.modal-bg{align-items:center}.modal{border-radius:18px}}
+.modal h3{margin:0 0 12px;font-size:18px}
+.f{margin-bottom:12px}
+.f label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.f input[type=text],.f input[type=url],.f input[type=date],.f input[type=time],.f input[type=password],.f select,.f textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#fff;font-size:16px}
+.f textarea{min-height:76px;resize:vertical}
+.f .check{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink)}
+.f .check input{width:20px;height:20px}
+.f .cur{font-size:13px;margin-top:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.mfoot{display:flex;gap:8px;justify-content:space-between;margin-top:6px;position:sticky;bottom:-18px;background:var(--card);padding:10px 0 4px}
+.toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 16px;border-radius:99px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.gate .card{max-width:380px;width:100%;padding:24px}
+.err{color:var(--danger);font-size:14px;margin-top:8px}
+.footer-note{font-size:12px;color:var(--muted);text-align:center;margin-top:24px}
+.footer-note button{background:none;border:0;color:var(--accent);cursor:pointer;font-size:12px;text-decoration:underline}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal-root"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== 工具 ===================== */
+const LS_ITEMS = 'tripplanner_items_v1';
+const LS_KEY = 'tripplanner_passcode_v1';
+const WD = ['日','一','二','三','四','五','六'];
+const TYPES = {flight:'✈️ 飛機', train:'🚆 火車', bus:'🚌 公車', metro:'🚇 地鐵/輕軌', boat:'⛴️ 船', car:'🚗 開車/計程車', other:'📍 其他'};
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+Math.random().toString(16).slice(2));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl = u => /^https?:\/\//i.test(String(u||'').trim()) ? String(u).trim() : '';
+const mapSearch = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+const fmtD = d => { if(!d) return ''; const [, m, dd] = d.split('-'); return `${+m}/${dd}`; };
+const wd = d => d ? WD[new Date(d + 'T00:00:00').getDay()] : '';
+const nights = (a, b) => (a && b) ? Math.max(0, Math.round((new Date(b) - new Date(a)) / 864e5)) : 0;
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); }
+
+/* ===================== 資料存取 ===================== */
+class LocalStore {
+  constructor(){ this.mode = 'local'; }
+  read(){ try { return JSON.parse(localStorage.getItem(LS_ITEMS) || '[]'); } catch { return []; } }
+  async list(){ return this.read(); }
+  async saveMany(arr){ const a = this.read(); arr.forEach(it => { const i = a.findIndex(x => x.id === it.id); i >= 0 ? a[i] = it : a.push(it); }); localStorage.setItem(LS_ITEMS, JSON.stringify(a)); }
+  async remove(ids){ localStorage.setItem(LS_ITEMS, JSON.stringify(this.read().filter(x => !ids.includes(x.id)))); }
+  async upload(){ throw new Error('預覽模式不能上傳檔案，完成雲端設定後就可以了'); }
+  onChange(){}
+}
+class RemoteStore {
+  constructor(key){
+    this.mode = 'remote';
+    this.db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, { global: { headers: { 'x-trip-key': key } } });
+    this.chan = this.db.channel('trip-sync', { config: { broadcast: { self: false } } });
+  }
+  async check(){
+    // 用一筆固定的「打卡」資料測試：密語錯誤時資料庫會拒絕寫入
+    const { error } = await this.db.from('trip_items').upsert({ id: '00000000-0000-0000-0000-000000000001', kind: 'ping', sort: 0, data: {}, updated_at: new Date().toISOString() });
+    if (!error) return true;
+    if (/row-level security|42501/i.test((error.message || '') + (error.code || ''))) return false;
+    throw error;
+  }
+  async list(){ const { data, error } = await this.db.from('trip_items').select('id,kind,sort,data').neq('kind', 'ping'); if (error) throw error; return data || []; }
+  async saveMany(arr){
+    const rows = arr.map(it => ({ id: it.id, kind: it.kind, sort: it.sort, data: it.data, updated_at: new Date().toISOString() }));
+    const { error } = await this.db.from('trip_items').upsert(rows); if (error) throw error; this.ping();
+  }
+  async remove(ids){ const { error } = await this.db.from('trip_items').delete().in('id', ids); if (error) throw error; this.ping(); }
+  async upload(file){
+    const ext = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf';
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await this.db.storage.from('trip-files').upload(path, file, { contentType: file.type || 'application/octet-stream' });
+    if (error) throw error;
+    return this.db.storage.from('trip-files').getPublicUrl(path).data.publicUrl;
+  }
+  onChange(cb){ this.chan.on('broadcast', { event: 'changed' }, cb).subscribe(); }
+  ping(){ try { this.chan.send({ type: 'broadcast', event: 'changed', payload: {} }); } catch(e) {} }
+}
+
+/* ===================== 狀態 ===================== */
+let store, items = [];
+const ui = { tab: 'overview', dayId: null, filter: 'all' };
+const of = k => items.filter(i => i.kind === k);
+const meta = () => of('meta')[0];
+const days = () => of('day').sort((a, b) => (a.data.date || '').localeCompare(b.data.date || '') || a.sort - b.sort);
+const spotsOf = dayId => of('spot').filter(s => s.data.day_id === dayId).sort((a, b) => a.sort - b.sort);
+const stays = () => of('stay').sort((a, b) => (a.data.checkin || '').localeCompare(b.data.checkin || ''));
+const trans = () => of('transport').sort((a, b) => (a.data.date || '').localeCompare(b.data.date || '') || (a.data.depart || '').localeCompare(b.data.depart || '') || a.sort - b.sort);
+const stayFor = date => stays().find(s => s.data.checkin && s.data.checkout && s.data.checkin <= date && date < s.data.checkout);
+const byId = id => items.find(i => i.id === id);
+
+async function save(arr){
+  arr.forEach(it => { const i = items.findIndex(x => x.id === it.id); i >= 0 ? items[i] = it : items.push(it); });
+  render();
+  try { await store.saveMany(arr); } catch(e) { toast('儲存失敗：' + e.message); reload(); }
+}
+async function removeItems(ids){
+  items = items.filter(i => !ids.includes(i.id)); render();
+  try { await store.remove(ids); } catch(e) { toast('刪除失敗：' + e.message); reload(); }
+}
+async function reload(){
+  try { items = await store.list(); render(); } catch(e) { toast('讀取失敗，請檢查網路'); }
+}
+
+/* ===================== 畫面 ===================== */
+function render(){
+  const m = meta()?.data || { title: '我們的旅行', subtitle: '' };
+  const ds = days();
+  if (!ui.dayId || !byId(ui.dayId)) ui.dayId = ds[0]?.id || null;
+  const remote = store.mode === 'remote';
+  let body = '';
+  if (!items.length) body = `<div class="card empty" style="margin-top:20px"><p>目前還沒有任何行程資料。</p><button class="btn primary" data-act="import-seed">匯入德奧11日初始行程</button><p style="font-size:13px;margin-top:10px">只需要一個人按一次就好</p></div>`;
+  else body = ({ overview: vOverview, day: vDay, stay: vStays, transport: vTrans })[ui.tab]();
+  document.getElementById('app').innerHTML = `
+  <header class="top"><div class="top-in">
+    <button class="meta-edit" data-act="edit-meta">編輯標題</button>
+    <h1>${esc(m.title)}</h1><div class="sub">${esc(m.subtitle)}</div>
+    <div class="sync"><span class="dot ${remote ? '' : 'local'}"></span>${remote ? '雲端共編中・修改會自動同步' : '預覽模式・資料只存在這台裝置'}</div>
+  </div></header>
+  <main class="wrap">${body}
+    <div class="footer-note">${remote ? `<button data-act="logout">切換通關密語</button>・` : ''}<button data-act="refresh">重新整理資料</button></div>
+  </main>
+  <nav class="tabs">
+    ${[['overview','🗺️','總覽'],['day','📅','每日'],['stay','🏨','住宿'],['transport','🚆','交通']].map(([k, e, l]) =>
+      `<button class="${ui.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}"><span class="e">${e}</span>${l}</button>`).join('')}
+  </nav>`;
+}
+
+function vOverview(){
+  const ds = days(), ts = trans(), ss = stays();
+  const booked = ts.filter(t => t.data.booked).length;
+  const totalN = ss.reduce((n, s) => n + nights(s.data.checkin, s.data.checkout), 0);
+  return `
+  <div class="stats">
+    <div class="stat"><b>${ds.length}</b><span>天</span></div>
+    <div class="stat"><b>${totalN}</b><span>飯店晚數</span></div>
+    <div class="stat"><b>${booked}/${ts.length}</b><span>交通已預訂</span></div>
+  </div>
+  <h2 class="sec">每日大方向</h2>
+  ${ds.map((d, i) => {
+    const dt = ts.filter(t => t.data.date === d.data.date);
+    const st = stayFor(d.data.date);
+    const n = spotsOf(d.id).length;
+    return `<div class="card daycard" data-act="goto-day" data-id="${d.id}">
+      <div class="dnum"><small>DAY</small><b>${i + 1}</b><small>${fmtD(d.data.date)}（${wd(d.data.date)}）</small></div>
+      <div class="dbody">
+        <p class="dtitle">${esc(d.data.title || '未命名')}</p>
+        <div class="dmeta">🛏 ${esc(d.data.sleep || (st ? st.data.name || st.data.city : '未填'))}・${n} 個行程</div>
+        <div class="chips">
+          ${d.data.city ? `<span class="chip city">${esc(d.data.city)}</span>` : ''}
+          ${dt.map(t => `<span class="chip ${t.data.booked ? 'ok' : 'todo'}">${(TYPES[t.data.type] || '📍').split(' ')[0]} ${esc(t.data.from)}→${esc(t.data.to)} ${t.data.booked ? '已訂' : '未訂'}</span>`).join('')}
+        </div>
+      </div></div>`;
+  }).join('')}
+  <button class="btn addbtn" data-act="add-day">＋ 新增一天</button>`;
+}
+
+function vDay(){
+  const ds = days();
+  if (!ds.length) return `<div class="empty">還沒有任何一天</div><button class="btn addbtn" data-act="add-day">＋ 新增一天</button>`;
+  const idx = ds.findIndex(d => d.id === ui.dayId);
+  const d = ds[idx];
+  const sp = spotsOf(d.id);
+  const ts = trans().filter(t => t.data.date === d.data.date);
+  const st = stayFor(d.data.date);
+  return `
+  <div class="daytabs">${ds.map((x, i) => `<button class="dtab ${x.id === d.id ? 'on' : ''}" data-act="pick-day" data-id="${x.id}">D${i + 1}<small>${fmtD(x.data.date)} ${wd(x.data.date)}</small></button>`).join('')}</div>
+  <div class="card dayhead">
+    <div class="row"><span class="label">DAY ${idx + 1}・${fmtD(d.data.date)}（${wd(d.data.date)}）${d.data.city ? '・' + esc(d.data.city) : ''}</span><button class="btn small" data-act="edit-day" data-id="${d.id}">編輯</button></div>
+    <h3>${esc(d.data.title || '未命名')}</h3>
+    <div class="dmeta">🛏 今晚住：${esc(d.data.sleep || (st ? st.data.name || st.data.city : '未填'))}</div>
+    ${d.data.summary ? `<p class="summary">${esc(d.data.summary)}</p>` : ''}
+  </div>
+  ${(ts.length || st) ? `<div class="label" style="margin:14px 0 6px">當日交通與住宿</div>` : ''}
+  ${ts.map(t => `<div class="card mini" data-act="edit-trans" data-id="${t.id}" style="cursor:pointer">
+      <span class="ic">${(TYPES[t.data.type] || '📍').split(' ')[0]}</span>
+      <div style="flex:1;min-width:0"><b>${esc(t.data.from)} → ${esc(t.data.to)}</b><div class="dmeta">${esc(t.data.depart || '')}${t.data.arrive ? ' – ' + esc(t.data.arrive) : ''} ${esc(t.data.number || '')}</div></div>
+      <span class="chip ${t.data.booked ? 'ok' : 'todo'}">${t.data.booked ? '已預訂' : '未預訂'}</span></div>`).join('')}
+  ${st ? `<div class="card mini" data-act="tab" data-v="stay" style="cursor:pointer"><span class="ic">🏨</span><div style="flex:1;min-width:0"><b>${esc(st.data.name || st.data.city)}</b><div class="dmeta">${esc(st.data.city || '')}・${fmtD(st.data.checkin)} 入住</div></div>${safeUrl(st.data.map_url) ? `<a class="btn small" href="${esc(safeUrl(st.data.map_url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">地圖</a>` : ''}</div>` : ''}
+  <h2 class="sec">細節行程 <span class="label">${sp.length} 項</span></h2>
+  <div class="timeline">
+    ${sp.map((s, i) => `<div class="card spot">
+      ${s.data.time ? `<div class="time">${esc(s.data.time)}</div>` : ''}
+      <div class="title">${esc(s.data.title || '未命名')}</div>
+      ${s.data.note ? `<div class="note">${esc(s.data.note)}</div>` : ''}
+      <div class="acts">
+        ${safeUrl(s.data.map_url) ? `<a class="btn small" href="${esc(safeUrl(s.data.map_url))}" target="_blank" rel="noopener">📍 地圖</a>` : ''}
+        <button class="btn small" data-act="spot-move" data-id="${s.id}" data-v="-1" ${i === 0 ? 'disabled' : ''} aria-label="上移">↑</button>
+        <button class="btn small" data-act="spot-move" data-id="${s.id}" data-v="1" ${i === sp.length - 1 ? 'disabled' : ''} aria-label="下移">↓</button>
+        <button class="btn small" data-act="edit-spot" data-id="${s.id}">編輯／移到別天</button>
+      </div></div>`).join('') || '<div class="empty">這天還沒有細節行程</div>'}
+  </div>
+  <button class="btn addbtn" data-act="add-spot" data-id="${d.id}">＋ 新增行程</button>`;
+}
+
+function vStays(){
+  const ss = stays();
+  return `<h2 class="sec">住宿 <span class="label">共 ${ss.reduce((n, s) => n + nights(s.data.checkin, s.data.checkout), 0)} 晚</span></h2>
+  ${ss.map(s => {
+    const x = s.data, n = nights(x.checkin, x.checkout);
+    return `<div class="card stay">
+      <div class="row"><span class="chip city">${esc(x.city || '城市')}</span><button class="btn small" data-act="edit-stay" data-id="${s.id}">編輯</button></div>
+      <h3 style="margin-top:8px">${esc(x.name || '尚未決定飯店')}</h3>
+      <dl class="kv">
+        <dt>日期</dt><dd>${fmtD(x.checkin)}（${wd(x.checkin)}）→ ${fmtD(x.checkout)}（${wd(x.checkout)}）・${n} 晚</dd>
+        ${x.address ? `<dt>地址</dt><dd>${esc(x.address)}</dd>` : ''}
+        ${x.confirmation ? `<dt>訂房編號</dt><dd>${esc(x.confirmation)}</dd>` : ''}
+        ${x.price ? `<dt>價格</dt><dd>${esc(x.price)}</dd>` : ''}
+        ${x.note ? `<dt>備註</dt><dd style="white-space:pre-wrap">${esc(x.note)}</dd>` : ''}
+      </dl>
+      <div class="links">
+        ${safeUrl(x.map_url) ? `<a class="btn small" href="${esc(safeUrl(x.map_url))}" target="_blank" rel="noopener">📍 Google 地圖</a>` : ''}
+        ${safeUrl(x.pdf_url) ? `<a class="btn small primary" href="${esc(safeUrl(x.pdf_url))}" target="_blank" rel="noopener">📄 ${esc(x.pdf_name || '訂房確認 PDF')}</a>` : ''}
+        ${safeUrl(x.booking_url) ? `<a class="btn small" href="${esc(safeUrl(x.booking_url))}" target="_blank" rel="noopener">🔗 訂房網頁</a>` : ''}
+        ${!safeUrl(x.map_url) && !safeUrl(x.pdf_url) && !safeUrl(x.booking_url) ? '<span class="dmeta">按「編輯」加入地圖連結與訂房 PDF</span>' : ''}
+      </div></div>`;
+  }).join('') || '<div class="empty">還沒有住宿</div>'}
+  <button class="btn addbtn" data-act="add-stay">＋ 新增住宿</button>`;
+}
+
+function vTrans(){
+  const all = trans();
+  const ts = all.filter(t => ui.filter === 'all' || (ui.filter === 'todo' ? !t.data.booked : t.data.booked));
+  let last = null, html = '';
+  ts.forEach(t => {
+    const x = t.data;
+    if (x.date !== last) { last = x.date; html += `<div class="dategroup">${x.date ? `${fmtD(x.date)}（${wd(x.date)}）` : '未定日期'}</div>`; }
+    html += `<div class="card trans">
+      <div class="row"><span class="label">${TYPES[x.type] || TYPES.other}${x.number ? '・' + esc(x.number) : ''}</span>
+        <button class="status ${x.booked ? 'ok' : 'todo'}" data-act="toggle-booked" data-id="${t.id}">${x.booked ? '✓ 已預訂' : '○ 未預訂'}</button></div>
+      <div class="route">${esc(x.from || '?')}<span class="arr">→</span>${esc(x.to || '?')}</div>
+      <div class="dmeta">${x.depart ? '出發 ' + esc(x.depart) : ''}${x.arrive ? '　抵達 ' + esc(x.arrive) : ''}</div>
+      ${(x.ref || x.seat || x.price || x.note) ? `<dl class="kv">
+        ${x.ref ? `<dt>訂位代號</dt><dd>${esc(x.ref)}</dd>` : ''}
+        ${x.seat ? `<dt>座位/車廂</dt><dd>${esc(x.seat)}</dd>` : ''}
+        ${x.price ? `<dt>價格</dt><dd>${esc(x.price)}</dd>` : ''}
+        ${x.note ? `<dt>備註</dt><dd style="white-space:pre-wrap">${esc(x.note)}</dd>` : ''}</dl>` : ''}
+      <div class="links">
+        ${safeUrl(x.pdf_url) ? `<a class="btn small primary" href="${esc(safeUrl(x.pdf_url))}" target="_blank" rel="noopener">📄 ${esc(x.pdf_name || '票券 PDF')}</a>` : ''}
+        ${safeUrl(x.link) ? `<a class="btn small" href="${esc(safeUrl(x.link))}" target="_blank" rel="noopener">🔗 訂票網頁</a>` : ''}
+        <button class="btn small" data-act="edit-trans" data-id="${t.id}">編輯</button>
+      </div></div>`;
+  });
+  return `<h2 class="sec">交通 <span class="label">已訂 ${all.filter(t => t.data.booked).length}/${all.length}</span></h2>
+  <div class="filters">${[['all','全部'],['todo','未預訂'],['done','已預訂']].map(([k, l]) => `<button class="btn small ${ui.filter === k ? 'on' : ''}" data-act="filter" data-v="${k}">${l}</button>`).join('')}</div>
+  ${html || '<div class="empty">沒有符合的交通</div>'}
+  <button class="btn addbtn" data-act="add-trans">＋ 新增交通</button>`;
+}
+
+/* ===================== 表單 ===================== */
+const F_DAY = [
+  { k: 'date', l: '日期', t: 'date' }, { k: 'city', l: '所在城市', t: 'text' },
+  { k: 'title', l: '當天主題（大方向）', t: 'text', full: 1 }, { k: 'sleep', l: '今晚住哪（留空會自動抓住宿）', t: 'text', full: 1 },
+  { k: 'summary', l: '當天概要', t: 'textarea', full: 1 }];
+const F_SPOT = () => [
+  { k: 'day_id', l: '屬於哪一天（改這裡就能移到別天）', t: 'select', full: 1, opts: days().map((d, i) => [d.id, `Day ${i + 1}・${fmtD(d.data.date)} ${d.data.title || ''}`]) },
+  { k: 'time', l: '時間（例 09:30、上午）', t: 'text' }, { k: 'title', l: '景點／活動', t: 'text' },
+  { k: 'note', l: '備註', t: 'textarea', full: 1 }, { k: 'map_url', l: 'Google 地圖連結', t: 'url', full: 1 }];
+const F_STAY = [
+  { k: 'city', l: '城市', t: 'text' }, { k: 'name', l: '飯店名稱', t: 'text' },
+  { k: 'checkin', l: '入住日', t: 'date' }, { k: 'checkout', l: '退房日', t: 'date' },
+  { k: 'address', l: '地址', t: 'text', full: 1 }, { k: 'map_url', l: 'Google 地圖連結', t: 'url', full: 1 },
+  { k: 'pdf_url', l: '訂房確認 PDF', t: 'file', name: 'pdf_name', full: 1 },
+  { k: 'booking_url', l: '訂房網頁連結（Booking、Agoda…）', t: 'url', full: 1 },
+  { k: 'confirmation', l: '訂房編號', t: 'text' }, { k: 'price', l: '價格', t: 'text' },
+  { k: 'note', l: '備註（早餐、寵物、入住時間…）', t: 'textarea', full: 1 }];
+const F_TRANS = [
+  { k: 'date', l: '日期', t: 'date' }, { k: 'type', l: '交通方式', t: 'select', opts: Object.entries(TYPES) },
+  { k: 'from', l: '出發地', t: 'text' }, { k: 'to', l: '目的地', t: 'text' },
+  { k: 'depart', l: '出發時間', t: 'text' }, { k: 'arrive', l: '抵達時間', t: 'text' },
+  { k: 'number', l: '班次／車次', t: 'text' }, { k: 'booked', l: '已預訂', t: 'check' },
+  { k: 'ref', l: '訂位代號', t: 'text' }, { k: 'seat', l: '座位／車廂', t: 'text' },
+  { k: 'price', l: '價格', t: 'text' }, { k: 'link', l: '訂票網頁連結', t: 'url' },
+  { k: 'pdf_url', l: '票券 PDF', t: 'file', name: 'pdf_name', full: 1 },
+  { k: 'note', l: '備註', t: 'textarea', full: 1 }];
+const F_META = [{ k: 'title', l: '旅程名稱', t: 'text', full: 1 }, { k: 'subtitle', l: '副標（日期等）', t: 'text', full: 1 }];
+
+function openForm(title, fields, values, onSubmit, onDelete){
+  const root = document.getElementById('modal-root');
+  const fld = f => {
+    const v = values[f.k] ?? '';
+    let input;
+    if (f.t === 'textarea') input = `<textarea name="${f.k}">${esc(v)}</textarea>`;
+    else if (f.t === 'select') input = `<select name="${f.k}">${f.opts.map(([val, lab]) => `<option value="${esc(val)}" ${val === v ? 'selected' : ''}>${esc(lab)}</option>`).join('')}</select>`;
+    else if (f.t === 'check') return `<div class="f" style="display:flex;align-items:flex-end"><label class="check"><input type="checkbox" name="${f.k}" ${v ? 'checked' : ''}> ${f.l}</label></div>`;
+    else if (f.t === 'file') input = `<input type="file" name="${f.k}" accept="application/pdf,image/*">
+      ${safeUrl(v) ? `<div class="cur">目前：<a href="${esc(v)}" target="_blank" rel="noopener">${esc(values[f.name] || '已上傳的檔案')}</a>　<label style="display:inline;color:var(--danger)"><input type="checkbox" name="${f.k}__clear"> 移除</label></div>` : ''}
+      <div class="cur" style="color:var(--muted)">也可以把雲端硬碟的分享連結貼在下方：</div>
+      <input type="url" name="${f.k}__link" placeholder="https://..." value="${safeUrl(v) && !String(v).includes('/storage/v1/') ? esc(v) : ''}" style="margin-top:4px">`;
+    else input = `<input type="${f.t === 'url' ? 'url' : f.t}" name="${f.k}" value="${esc(v)}" ${f.t === 'url' ? 'placeholder="https://..."' : ''}>`;
+    return `<div class="f" ${f.full ? 'style="grid-column:1/-1"' : ''}><label>${f.l}</label>${input}</div>`;
+  };
+  root.innerHTML = `<div class="modal-bg"><form class="modal"><h3>${esc(title)}</h3><div class="grid2">${fields.map(fld).join('')}</div>
+    <div class="mfoot"><div>${onDelete ? '<button type="button" class="btn danger" data-m="del">刪除</button>' : ''}</div>
+    <div style="display:flex;gap:8px"><button type="button" class="btn" data-m="cancel">取消</button><button type="submit" class="btn primary">儲存</button></div></div></form></div>`;
+  const bg = root.firstElementChild, form = bg.querySelector('form');
+  const close = () => root.innerHTML = '';
+  bg.addEventListener('click', e => { if (e.target === bg) close(); });
+  form.querySelector('[data-m=cancel]').onclick = close;
+  if (onDelete) form.querySelector('[data-m=del]').onclick = async () => { if (confirm('確定要刪除嗎？')) { close(); onDelete(); } };
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true; btn.textContent = '儲存中…';
+    const out = { ...values };
+    try {
+      for (const f of fields) {
+        const el = form.elements[f.k];
+        if (f.t === 'check') out[f.k] = el.checked;
+        else if (f.t === 'file') {
+          const file = el.files[0], link = form.elements[f.k + '__link'].value.trim(), clear = form.elements[f.k + '__clear']?.checked;
+          if (file) { btn.textContent = '上傳中…'; out[f.k] = await store.upload(file); out[f.name] = file.name; }
+          else if (clear) { out[f.k] = ''; out[f.name] = ''; }
+          else if (link && link !== values[f.k]) { out[f.k] = link; out[f.name] = out[f.name] || '開啟檔案'; }
+        } else out[f.k] = el.value.trim();
+      }
+      close(); onSubmit(out);
+    } catch(err) { btn.disabled = false; btn.textContent = '儲存'; toast(err.message || '發生錯誤'); }
+  };
+}
+
+/* ===================== 操作 ===================== */
+const nextSort = list => list.length ? Math.max(...list.map(x => x.sort || 0)) + 1 : 1;
+const ACT = {
+  'tab': (_, v) => { ui.tab = v; render(); scrollTo(0, 0); },
+  'filter': (_, v) => { ui.filter = v; render(); },
+  'refresh': () => { reload(); toast('已更新'); },
+  'logout': () => { localStorage.removeItem(LS_KEY); location.reload(); },
+  'goto-day': id => { ui.dayId = id; ui.tab = 'day'; render(); scrollTo(0, 0); },
+  'pick-day': id => { ui.dayId = id; render(); },
+  'import-seed': () => { if (confirm('匯入初始行程？')) save(buildSeed()); },
+  'edit-meta': () => { const m = meta() || { id: uid(), kind: 'meta', sort: 0, data: {} }; openForm('編輯旅程標題', F_META, m.data, d => save([{ ...m, data: d }])); },
+  'add-day': () => {
+    const ds = days(), lastD = ds.at(-1)?.data.date;
+    const nd = lastD ? new Date(new Date(lastD + 'T00:00:00').getTime() + 864e5 + 12 * 36e5).toISOString().slice(0, 10) : '';
+    openForm('新增一天', F_DAY, { date: nd }, d => { const it = { id: uid(), kind: 'day', sort: nextSort(ds), data: d }; ui.dayId = it.id; save([it]); });
+  },
+  'edit-day': id => { const it = byId(id); openForm('編輯這一天', F_DAY, it.data, d => save([{ ...it, data: d }]),
+      () => removeItems([id, ...spotsOf(id).map(s => s.id)])); },
+  'add-spot': dayId => openForm('新增行程', F_SPOT(), { day_id: dayId }, d => save([{ id: uid(), kind: 'spot', sort: nextSort(spotsOf(d.day_id)), data: d }])),
+  'edit-spot': id => { const it = byId(id); openForm('編輯行程', F_SPOT(), it.data, d => {
+      const sort = d.day_id !== it.data.day_id ? nextSort(spotsOf(d.day_id)) : it.sort;
+      save([{ ...it, sort, data: d }]); if (d.day_id !== it.data.day_id) toast('已移到其他天');
+    }, () => removeItems([id])); },
+  'spot-move': (id, v) => {
+    const it = byId(id), list = spotsOf(it.data.day_id).map((s, i) => ({ ...s, sort: i }));
+    const i = list.findIndex(s => s.id === id), j = i + (+v);
+    if (j < 0 || j >= list.length) return;
+    [list[i].sort, list[j].sort] = [list[j].sort, list[i].sort];
+    save(list);
+  },
+  'add-stay': () => openForm('新增住宿', F_STAY, {}, d => save([{ id: uid(), kind: 'stay', sort: nextSort(stays()), data: d }])),
+  'edit-stay': id => { const it = byId(id); openForm('編輯住宿', F_STAY, it.data, d => save([{ ...it, data: d }]), () => removeItems([id])); },
+  'add-trans': () => openForm('新增交通', F_TRANS, { type: 'train', booked: false }, d => save([{ id: uid(), kind: 'transport', sort: nextSort(trans()), data: d }])),
+  'edit-trans': id => { const it = byId(id); openForm('編輯交通', F_TRANS, it.data, d => save([{ ...it, data: d }]), () => removeItems([id])); },
+  'toggle-booked': id => { const it = byId(id); save([{ ...it, data: { ...it.data, booked: !it.data.booked } }]); toast(it.data.booked ? '改為未預訂' : '已標記為已預訂'); },
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el || el.closest('#modal-root')) return;
+  const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el.dataset.id, el.dataset.v); }
+});
+
+/* ===================== 初始行程（只在第一次匯入時使用） ===================== */
+function buildSeed(){
+  const out = [{ id: uid(), kind: 'meta', sort: 0, data: { title: '德奧 11 日雪季之旅', subtitle: '2027.02.08 – 02.18・柏林｜維也納｜薩爾斯堡｜慕尼黑' } }];
+  const D = [
+    ['2027-02-08','慕尼黑轉機 ✈ 抵達柏林','柏林','柏林（第 1 晚）','上午抵達慕尼黑，不出機場直接轉漢莎航空飛柏林。',[
+      ['上午','抵達慕尼黑機場 MUC','不出機場，直接辦理漢莎航空轉機','Munich Airport'],
+      ['15:30','漢莎航空 MUC → BER','飛行約 70 分鐘',''],
+      ['16:40','抵達柏林布蘭登堡機場','搭機場快線火車 FEX 直達市區','Berlin Brandenburg Airport'],
+      ['晚上','入住柏林飯店','','']]],
+    ['2027-02-09','柏林歷史與文化精華巡禮','柏林','柏林（第 2 晚）','全日利用地鐵遊覽柏林核心地標。',[
+      ['上午','布蘭登堡門','','Brandenburger Tor'],
+      ['','查理檢查哨','','Checkpoint Charlie'],
+      ['','波茨坦廣場','','Potsdamer Platz'],
+      ['下午','柏林圍牆東邊畫廊','欣賞歷史塗鴉','East Side Gallery']]],
+    ['2027-02-10','博物館島 ➔ 夜鋪火車往維也納','柏林 → 維也納','Nightjet 臥鋪','晚上搭奧鐵 Nightjet 夜鋪火車前往維也納（不用訂飯店）。',[
+      ['上午','博物館島','或預約參觀國會大廈玻璃穹頂（需事先線上預約）','Museumsinsel Berlin'],
+      ['19:43','柏林中央車站搭 ÖBB Nightjet','帶著行李與寵物，前往維也納','Berlin Hauptbahnhof']]],
+    ['2027-02-11','維也納音樂之都初體驗','維也納','維也納（第 1 晚）','清晨抵達維也納，先到飯店寄放行李。',[
+      ['清晨','抵達維也納，飯店寄放行李','',''],
+      ['上午','聖史蒂芬大教堂','','Stephansdom Wien'],
+      ['下午','中央咖啡館／Demel 下午茶','溫暖的下午茶與沙赫蛋糕避寒','Café Central Wien']]],
+    ['2027-02-12','維也納宮殿與藝術之旅','維也納','維也納（第 2 晚）','',[
+      ['上午','霍夫堡宮＆茜茜公主博物館','哈布斯堡王朝的冬宮','Hofburg Wien Sisi Museum'],
+      ['下午','美景宮（貝維德爾宮）','欣賞克林姆名畫《吻》','Oberes Belvedere']]],
+    ['2027-02-13','美泉宮 ➔ 薩爾斯堡','維也納 → 薩爾斯堡','薩爾斯堡（第 1 晚）','',[
+      ['上午','美泉宮（熊布朗宮）','哈布斯堡王朝的夏宮','Schloss Schönbrunn'],
+      ['下午','ÖBB 火車往薩爾斯堡','車程約 2.5 小時，入住車站附近飯店','Salzburg Hauptbahnhof']]],
+    ['2027-02-14','哈修塔特當日往返・情人節','薩爾斯堡','薩爾斯堡（第 2 晚）','',[
+      ['上午','前往哈修塔特','從薩爾斯堡搭火車或公車',''],
+      ['','哈修塔特雪景小鎮','拍攝明信片角度','Hallstatt Aussichtspunkt'],
+      ['下午','返回薩爾斯堡','',''],
+      ['晚上','老城區情人節晚餐','記得提早訂位','Salzburg Altstadt']]],
+    ['2027-02-15','國王湖 ➔ 傍晚移動到慕尼黑','薩爾斯堡 → 慕尼黑','慕尼黑（第 1 晚）','840 號公車的終點就是薩爾斯堡中央車站：下公車 → 拿行李 → 直接搭火車去慕尼黑。',[
+      ['上午','退房，行李寄存薩爾斯堡中央車站','','Salzburg Hauptbahnhof'],
+      ['','840 號公車前往國王湖','','Königssee'],
+      ['','電動船往紅蔥頭教堂','聖巴爾多祿茂教堂','St. Bartholomä Königssee'],
+      ['傍晚','回中央車站取行李，火車往慕尼黑','車程約 1.5～2 小時','']]],
+    ['2027-02-16','慕尼黑市區慢活＆皇家啤酒屋','慕尼黑','慕尼黑（第 2 晚）','睡到自然醒，好好慢活。',[
+      ['上午','瑪麗亞廣場','','Marienplatz München'],
+      ['','新市政廳','','Neues Rathaus München'],
+      ['午／晚餐','皇家啤酒屋 Hofbräuhaus','烤豬腳＋巴伐利亞啤酒','Hofbräuhaus München']]],
+    ['2027-02-17','德南童話新天鵝堡一日遊','慕尼黑 ⇄ 富森','慕尼黑（第 3 晚）','',[
+      ['上午','前往富森','',''],
+      ['','新天鵝堡','冬雪限定景致','Schloss Neuschwanstein'],
+      ['傍晚','回慕尼黑採買','藥妝、伴手禮（Rimowa 登機箱、雙人牌）',''],
+      ['晚上','打包退稅商品','','']]],
+    ['2027-02-18','慕尼黑 ✈ 台北（離境日）','慕尼黑','—','',[
+      ['11:00','新市政廳壁鐘人偶秀','時間充裕再去','Neues Rathaus Glockenspiel'],
+      ['起飛前 3.5～4h','S1／S8 往慕尼黑機場','從中央車站出發，車程約 40 分鐘','München Hauptbahnhof'],
+      ['','機場辦理退稅與登機','','Munich Airport']]],
+  ];
+  D.forEach(([date, title, city, sleep, summary, spots], i) => {
+    const id = uid();
+    out.push({ id, kind: 'day', sort: i, data: { date, title, city, sleep, summary } });
+    spots.forEach(([time, t, note, q], j) => out.push({ id: uid(), kind: 'spot', sort: j, data: { day_id: id, time, title: t, note, map_url: q ? mapSearch(q) : '' } }));
+  });
+  [['柏林','2027-02-08','2027-02-10'],['維也納','2027-02-11','2027-02-13'],['薩爾斯堡','2027-02-13','2027-02-15'],['慕尼黑','2027-02-15','2027-02-18']]
+    .forEach(([city, checkin, checkout], i) => out.push({ id: uid(), kind: 'stay', sort: i, data: { city, name: '', checkin, checkout, note: city === '慕尼黑' ? '候選：車站旁希爾頓系列飯店' : '', map_url: '', pdf_url: '', booking_url: '' } }));
+  [
+    ['2027-02-08','flight','台北','慕尼黑 MUC','','上午','','去程長程航班'],
+    ['2027-02-08','flight','慕尼黑 MUC','柏林 BER','15:30','16:40','漢莎航空','機場內轉機，不出關'],
+    ['2027-02-08','train','柏林 BER 機場','柏林市區','','','FEX 機場快線',''],
+    ['2027-02-10','train','柏林中央車站','維也納','19:43','隔天清晨','ÖBB Nightjet','夜鋪火車，帶行李與寵物'],
+    ['2027-02-13','train','維也納','薩爾斯堡','下午','','ÖBB','約 2.5 小時'],
+    ['2027-02-14','train','薩爾斯堡','哈修塔特','上午','','火車或公車','當日往返'],
+    ['2027-02-14','train','哈修塔特','薩爾斯堡','下午','','',''],
+    ['2027-02-15','bus','薩爾斯堡中央車站','國王湖','上午','','840 號公車',''],
+    ['2027-02-15','boat','國王湖碼頭','紅蔥頭教堂','','','國王湖電動船','冬季班次較少'],
+    ['2027-02-15','bus','國王湖','薩爾斯堡中央車站','傍晚','','840 號公車',''],
+    ['2027-02-15','train','薩爾斯堡','慕尼黑','傍晚','','','約 1.5～2 小時'],
+    ['2027-02-17','train','慕尼黑','富森','上午','','','新天鵝堡'],
+    ['2027-02-17','train','富森','慕尼黑','傍晚','','',''],
+    ['2027-02-18','metro','慕尼黑中央車站','慕尼黑機場','','','S1／S8','約 40 分鐘'],
+    ['2027-02-18','flight','慕尼黑 MUC','台北','','','','回程航班'],
+  ].forEach(([date, type, from, to, depart, arrive, number, note], i) =>
+    out.push({ id: uid(), kind: 'transport', sort: i, data: { date, type, from, to, depart, arrive, number, note, booked: false, ref: '', seat: '', price: '', link: '', pdf_url: '' } }));
+  return out;
+}
+
+/* ===================== 啟動 ===================== */
+function showGate(msg){
+  document.getElementById('app').innerHTML = `<div class="gate"><form class="card" id="gate">
+    <h2 style="font-family:'Noto Serif TC',serif;margin:0 0 6px">🔐 旅伴專用</h2>
+    <p class="dmeta" style="margin:0 0 14px">請輸入大家約定好的通關密語（英文或數字）</p>
+    <div class="f"><input type="password" name="k" autocomplete="current-password" required></div>
+    <button class="btn primary" style="width:100%;justify-content:center">進入行程</button>
+    ${msg ? `<div class="err">${esc(msg)}</div>` : ''}</form></div>`;
+  document.getElementById('gate').onsubmit = e => {
+    e.preventDefault(); const k = e.target.k.value.trim();
+    if (!/^[\x21-\x7e]+$/.test(k)) return showGate('通關密語只能用英文、數字或符號');
+    connect(k);
+  };
+}
+async function connect(key){
+  store = new RemoteStore(key);
+  let ok;
+  try { ok = await store.check(); }
+  catch(e) { return showGate('連不上資料庫：' + (e.message || e) + '（請確認 setup.sql 已執行、網址與金鑰正確）'); }
+  if (!ok) { localStorage.removeItem(LS_KEY); return showGate('通關密語不正確'); }
+  localStorage.setItem(LS_KEY, key);
+  store.onChange(() => reload());
+  setInterval(reload, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) reload(); });
+  await reload();
+}
+(async function init(){
+  if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
+    store = new LocalStore();
+    items = await store.list();
+    if (!items.length) { items = buildSeed(); await store.saveMany(items); }
+    return render();
+  }
+  const key = localStorage.getItem(LS_KEY);
+  key ? connect(key) : showGate();
+})();
+</script>
+</body>
+</html>
