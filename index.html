@@ -6,17 +6,22 @@
 <title>德奧雪季之旅</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================================================
-   ⚙️ 設定區：只需要改這兩行（教學第 A3 步）
+   ⚙️ 連線設定請寫在同資料夾的 config.js（之後更新 index.html 不用重填）
+   如果你想直接寫在這裡也可以，config.js 有填的話會以 config.js 為準
    ============================================================ */
 const CONFIG = {
-  SUPABASE_URL: 'https://kpvrilobbevzytwffqra.supabase.co',   // 例：'https://abcdxyz.supabase.co'
-  SUPABASE_KEY: 'sb_publishable_oiCHeGxC5h45K64Sw61dLQ_IkK9Punz'    // 例：'sb_publishable_xxxx' 或 anon key（eyJ 開頭）
+  SUPABASE_URL: '',   // 例：'https://abcdxyz.supabase.co'
+  SUPABASE_KEY: '',   // 例：'sb_publishable_xxxx' 或 anon key（eyJ 開頭）
+  MAP_COUNTRIES: ''   // 地圖自動定位限定國家，例：'de,at'（留空 = 全世界）
 };
-/* 兩行都留空 = 預覽模式：資料只存在自己的瀏覽器，不會共用 */
+/* 網址、金鑰都留空 = 預覽模式：資料只存在自己的瀏覽器，不會共用 */
 </script>
+<script src="config.js"></script>
 <style>
 :root{
   --bg:#f4f1ec; --card:#fffdf9; --ink:#1f2a33; --muted:#6b7680; --line:#e4ded4;
@@ -75,8 +80,27 @@ h2.sec{font-family:'Noto Serif TC',serif;font-size:19px;margin:22px 0 12px;displ
 .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .timeline{position:relative;padding-left:18px}
 .timeline::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line)}
-.spot{position:relative}
-.spot::before{content:"";position:absolute;left:-18px;top:18px;width:12px;height:12px;border-radius:50%;background:var(--card);border:3px solid var(--accent)}
+.timeline{padding-left:24px}
+.timeline::before{left:10px}
+.spot{position:relative;scroll-margin-top:90px}
+.spot .num{position:absolute;left:-27px;top:14px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg);cursor:pointer;padding:0}
+.spot .num.off{background:var(--card);color:var(--muted);border:2px solid var(--line)}
+.spot.flash{animation:flash 1.4s ease}
+@keyframes flash{0%,40%{box-shadow:0 0 0 3px var(--warm)}100%{box-shadow:var(--shadow)}}
+/* 地圖 */
+.mapbox{margin:16px 0 4px}
+.map{position:relative;z-index:0;height:280px;border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;background:#e8e4dc;box-shadow:var(--shadow)}
+.mapbox.day .map{height:240px}
+.mapnote{font-size:12px;color:var(--muted);margin-top:6px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.mapnote button{background:none;border:0;color:var(--accent);cursor:pointer;font-size:12px;padding:0;white-space:nowrap}
+.mapempty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px;text-align:center;padding:20px}
+.pin{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:700 12px/22px 'Noto Sans TC',sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.pin.day{width:30px;height:30px;line-height:26px;background:var(--warm);font-size:13px}
+.pin.day.multi{white-space:nowrap;width:max-content;min-width:30px;padding:0 7px;border-radius:15px;font-size:12px;transform:translateX(calc(15px - 50%))}
+.pin.hotel{background:#fff;border-color:var(--warm);font-size:14px;line-height:22px}
+.leaflet-tooltip{font-family:'Noto Sans TC',sans-serif;font-size:12px;border-radius:8px;padding:3px 8px}
+.leaflet-container a.leaflet-popup-close-button{display:none}
+.warnbar{background:var(--todo-soft);color:#7a5a00;border:1px solid #efd9a0;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:14px}
 .spot .time{font-size:12px;font-weight:700;color:var(--warm)}
 .spot .title{font-weight:700}
 .spot .note{font-size:14px;color:#46515b;white-space:pre-wrap;margin-top:2px}
@@ -132,6 +156,9 @@ nav.tabs button.on .e{filter:none;opacity:1}
 <div class="toast" id="toast"></div>
 
 <script>
+/* config.js 有填的值優先 */
+Object.entries(window.TRIP_CONFIG || {}).forEach(([k, v]) => { if (v) CONFIG[k] = String(v).trim(); });
+
 /* ===================== 工具 ===================== */
 const LS_ITEMS = 'tripplanner_items_v1';
 const LS_KEY = 'tripplanner_passcode_v1';
@@ -226,13 +253,16 @@ function render(){
     <h1>${esc(m.title)}</h1><div class="sub">${esc(m.subtitle)}</div>
     <div class="sync"><span class="dot ${remote ? '' : 'local'}"></span>${remote ? '雲端共編中・修改會自動同步' : '預覽模式・資料只存在這台裝置'}</div>
   </div></header>
-  <main class="wrap">${body}
+  <main class="wrap">${!remote && /github\.io$/.test(location.hostname) ? `<div class="warnbar">⚠️ 找不到 config.js 裡的連線設定，現在是預覽模式。你們的行程資料還好好地在雲端，補上 config.js 就會出現。</div>` : ''}${body}
     <div class="footer-note">${remote ? `<button data-act="logout">切換通關密語</button>・` : ''}<button data-act="refresh">重新整理資料</button></div>
   </main>
   <nav class="tabs">
     ${[['overview','🗺️','總覽'],['day','📅','每日'],['stay','🏨','住宿'],['transport','🚆','交通']].map(([k, e, l]) =>
       `<button class="${ui.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}"><span class="e">${e}</span>${l}</button>`).join('')}
   </nav>`;
+  if (items.length && ui.tab === 'overview') mountMap('overview', buildOverviewMap);
+  if (items.length && ui.tab === 'day' && ui.dayId) mountMap('day:' + ui.dayId, buildDayMap);
+  geoRun();
 }
 
 function vOverview(){
@@ -240,6 +270,7 @@ function vOverview(){
   const booked = ts.filter(t => t.data.booked).length;
   const totalN = ss.reduce((n, s) => n + nights(s.data.checkin, s.data.checkout), 0);
   return `
+  ${mapSlot('overview', '點地圖上的數字可以直接跳到那一天')}
   <div class="stats">
     <div class="stat"><b>${ds.length}</b><span>天</span></div>
     <div class="stat"><b>${totalN}</b><span>飯店晚數</span></div>
@@ -280,6 +311,7 @@ function vDay(){
     <div class="dmeta">🛏 今晚住：${esc(d.data.sleep || (st ? st.data.name || st.data.city : '未填'))}</div>
     ${d.data.summary ? `<p class="summary">${esc(d.data.summary)}</p>` : ''}
   </div>
+  ${mapSlot('day', (() => { const miss = sp.filter(s => !located(s)).length; return miss ? `${miss} 個行程還沒有位置：按「編輯」填「地圖定位用地名」` : '標記可以按住拖曳修正位置'; })())}
   ${(ts.length || st) ? `<div class="label" style="margin:14px 0 6px">當日交通與住宿</div>` : ''}
   ${ts.map(t => `<div class="card mini" data-act="edit-trans" data-id="${t.id}" style="cursor:pointer">
       <span class="ic">${(TYPES[t.data.type] || '📍').split(' ')[0]}</span>
@@ -288,7 +320,8 @@ function vDay(){
   ${st ? `<div class="card mini" data-act="tab" data-v="stay" style="cursor:pointer"><span class="ic">🏨</span><div style="flex:1;min-width:0"><b>${esc(st.data.name || st.data.city)}</b><div class="dmeta">${esc(st.data.city || '')}・${fmtD(st.data.checkin)} 入住</div></div>${safeUrl(st.data.map_url) ? `<a class="btn small" href="${esc(safeUrl(st.data.map_url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">地圖</a>` : ''}</div>` : ''}
   <h2 class="sec">細節行程 <span class="label">${sp.length} 項</span></h2>
   <div class="timeline">
-    ${sp.map((s, i) => `<div class="card spot">
+    ${sp.map((s, i) => `<div class="card spot" id="spot-${s.id}">
+      <button class="num ${located(s) ? '' : 'off'}" data-act="spot-focus" data-id="${s.id}" title="${located(s) ? '在地圖上顯示' : '還沒有地圖位置'}">${i + 1}</button>
       ${s.data.time ? `<div class="time">${esc(s.data.time)}</div>` : ''}
       <div class="title">${esc(s.data.title || '未命名')}</div>
       ${s.data.note ? `<div class="note">${esc(s.data.note)}</div>` : ''}
@@ -356,6 +389,177 @@ function vTrans(){
   <button class="btn addbtn" data-act="add-trans">＋ 新增交通</button>`;
 }
 
+/* ===================== 地圖 ===================== */
+// 位置會存在每筆資料的 data.geo = {lat, lng, k}，k 記錄是用哪個地名/連結定位的；地名改了就會重新定位
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function coordsFromUrl(u){
+  if (!u) return null;
+  const m = u.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || u.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || u.match(/[?&](?:q|query|ll|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  return m ? { lat: +m[1], lng: +m[2] } : null;
+}
+function queryFromUrl(u){
+  try {
+    const x = new URL(u);
+    const q = x.searchParams.get('query') || x.searchParams.get('q');
+    if (q && !/^-?\d+(\.\d+)?,/.test(q)) return q;
+    const m = x.pathname.match(/\/maps\/place\/([^/]+)/);
+    if (m) return decodeURIComponent(m[1].replace(/\+/g, ' '));
+  } catch {}
+  return '';
+}
+function geoKey(it){
+  const x = it.data;
+  const pick = (q, c) => c ? { key: `c:${c.lat},${c.lng}`, coords: c } : (q ? { key: 'q:' + q, q } : { key: '' });
+  if (x.geo_q) return pick(x.geo_q.trim());
+  const c = coordsFromUrl(x.map_url); if (c) return pick('', c);
+  const q = queryFromUrl(x.map_url); if (q) return pick(q);
+  if (it.kind === 'spot') {
+    if (!safeUrl(x.map_url)) return pick('');           // 沒有地圖連結的（例如「入住飯店」）不猜位置
+    const day = byId(x.day_id);
+    return pick([x.title, (day?.data.city || '').split(/[→⇄➔]/).pop().trim()].filter(Boolean).join(' '));
+  }
+  if (x.address) return pick(x.address);
+  return pick(x.name ? `${x.name} ${x.city || ''}`.trim() : '');
+}
+const located = it => { const g = it?.data.geo; return !!(g && !g.fail && isFinite(g.lat) && g.k === geoKey(it).key && g.k); };
+const ll = it => [it.data.geo.lat, it.data.geo.lng];
+
+async function nominatim(q){
+  const cc = (CONFIG.MAP_COUNTRIES || '').trim();
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=zh-TW,en&q=' + encodeURIComponent(q) + (cc ? '&countrycodes=' + encodeURIComponent(cc) : '');
+  const r = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!r.ok) throw new Error('geo ' + r.status);
+  const j = await r.json();
+  return j[0] ? { lat: +j[0].lat, lng: +j[0].lon } : null;
+}
+let geoBusy = false, geoLeft = 0;
+const geoTried = new Set();
+async function geoRun(){
+  if (geoBusy) return;
+  geoBusy = true;
+  try {
+    for (;;) {
+      const todo = items.filter(it => it.kind === 'spot' || it.kind === 'stay')
+        .map(it => [it, geoKey(it)])
+        .filter(([it, k]) => k.key && it.data.geo?.k !== k.key && !geoTried.has(it.id + k.key));
+      geoLeft = todo.length; updateMapNote();
+      if (!todo.length) break;
+      const [it, k] = todo[0];
+      geoTried.add(it.id + k.key);
+      let geo;
+      if (k.coords) geo = { ...k.coords, k: k.key };
+      else {
+        let r = await nominatim(k.q);
+        const words = k.q.split(/\s+/);
+        if (!r && words.length >= 3) { await sleep(1100); r = await nominatim(words.slice(0, -1).join(' ')); }
+        geo = r ? { ...r, k: k.key } : { fail: true, k: k.key };
+        await sleep(1100);                                  // OpenStreetMap 規定每秒最多 1 次
+      }
+      const cur = byId(it.id);
+      if (cur && geoKey(cur).key === k.key) await save([{ ...cur, data: { ...cur.data, geo } }]);
+    }
+  } catch(e) {
+    setTimeout(() => { geoTried.clear(); geoRun(); }, 60000); // 網路不穩時一分鐘後再試
+  } finally { geoBusy = false; geoLeft = 0; updateMapNote(); }
+}
+
+let MAP = null, mapEl = null, mapLayer = null, mapViewKey = '', mapHint = '';
+function mapSlot(kind, hint){
+  mapHint = hint;
+  return `<div class="mapbox ${kind}"><div id="map-slot"></div><div class="mapnote"><span id="mapnote"></span><button data-act="map-fit">↺ 重新置中</button></div></div>`;
+}
+function updateMapNote(){
+  const el = document.getElementById('mapnote'); if (!el) return;
+  el.textContent = geoLeft ? `📍 正在標記地圖位置…還有 ${geoLeft} 個（只有第一次比較久，之後會記住）` : mapHint;
+}
+function pinIcon(text, cls = ''){ return L.divIcon({ className: '', html: `<div class="pin ${cls}">${text}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] }); }
+function mountMap(viewKey, build){
+  const slot = document.getElementById('map-slot');
+  if (!slot) return;
+  if (!window.L) { slot.innerHTML = '<div class="map"><div class="mapempty">地圖載入失敗，請檢查網路後重新整理</div></div>'; return; }
+  if (!mapEl) { mapEl = document.createElement('div'); mapEl.className = 'map'; }
+  slot.appendChild(mapEl);
+  if (!MAP) {
+    MAP = L.map(mapEl, { scrollWheelZoom: false, zoomSnap: .5 }).setView([48.5, 12], 5);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19, subdomains: 'abcd',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }).addTo(MAP);
+    mapLayer = L.layerGroup().addTo(MAP);
+  }
+  mapLayer.clearLayers();
+  const pts = build(mapLayer);
+  MAP.invalidateSize();
+  const key = viewKey + '|' + pts.length;
+  if (key !== mapViewKey && pts.length) {
+    mapViewKey = key;
+    pts.length === 1 ? MAP.setView(pts[0], 14) : MAP.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
+  }
+  updateMapNote();
+}
+const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLng / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+// 每一天標在「當晚落腳處」：當晚住宿有位置就用住宿，否則用當天最後一個有位置的行程
+function dayPoint(d){
+  const st = stayFor(d.data.date);
+  if (located(st)) return ll(st);
+  const sp = spotsOf(d.id).filter(located);
+  return sp.length ? ll(sp.at(-1)) : null;
+}
+function buildOverviewMap(layer){
+  const pts = [], groups = [];
+  days().forEach((d, i) => {
+    const p = dayPoint(d); if (!p) return;
+    pts.push(p);
+    // 同一座城市（25 公里內）的天數合併成一個標記，例如「1·2·3」
+    const g = groups.find(g => km(g.p, p) < 25);
+    g ? g.days.push([d, i]) : groups.push({ p, days: [[d, i]] });
+  });
+  if (pts.length > 1) L.polyline(pts, { color: '#b5643c', weight: 2.5, opacity: .7, dashArray: '6 6' }).addTo(layer);
+  groups.forEach(({ p, days: ds }, gi) => {
+    const label = ds.map(([, i]) => i + 1).join('·');
+    L.marker(p, { icon: pinIcon(label, 'day' + (ds.length > 1 ? ' multi' : '')), zIndexOffset: 100 + gi })
+      .bindTooltip(ds.map(([d, i]) => `Day ${i + 1}・${fmtD(d.data.date)} ${esc(d.data.title || '')}`).join('<br>'), { direction: 'top', offset: [0, -14] })
+      .on('click', () => ACT['goto-day'](ds[0][0].id)).addTo(layer);
+  });
+  stays().filter(located).forEach(s => {
+    L.marker(ll(s), { icon: pinIcon('🏨', 'hotel') })
+      .bindTooltip(`${esc(s.data.city || '')} ${esc(s.data.name || '住宿')}`, { direction: 'top', offset: [0, -14] }).addTo(layer);
+    pts.push(ll(s));
+  });
+  return pts;
+}
+function buildDayMap(layer){
+  const d = byId(ui.dayId); if (!d) return [];
+  const pts = [], line = [];
+  spotsOf(d.id).forEach((s, i) => {
+    if (!located(s)) return;
+    const p = ll(s); pts.push(p); line.push(p);
+    const m = L.marker(p, { icon: pinIcon(i + 1), draggable: true, zIndexOffset: 100 + i })
+      .bindTooltip(`${i + 1}. ${esc(s.data.title || '')}`, { direction: 'top', offset: [0, -14] }).addTo(layer);
+    m.on('click', () => {
+      const card = document.getElementById('spot-' + s.id);
+      if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+    });
+    m.on('dragend', () => {
+      const cur = byId(s.id), g = m.getLatLng();
+      save([{ ...cur, data: { ...cur.data, geo: { lat: g.lat, lng: g.lng, k: geoKey(cur).key, manual: true } } }]);
+      toast('已更新「' + (cur.data.title || '') + '」的位置');
+    });
+  });
+  if (line.length > 1) L.polyline(line, { color: '#2f5d7c', weight: 3, opacity: .6, dashArray: '2 7', lineCap: 'round' }).addTo(layer);
+  const st = stayFor(d.data.date) || stays().find(s => s.data.checkout === d.data.date);
+  if (located(st)) {
+    L.marker(ll(st), { icon: pinIcon('🏨', 'hotel') }).bindTooltip(esc(st.data.name || st.data.city || '住宿'), { direction: 'top', offset: [0, -14] }).addTo(layer);
+    pts.push(ll(st));
+  }
+  if (!pts.length) {
+    L.tooltip({ permanent: true, direction: 'center' }).setLatLng(MAP.getCenter())
+      .setContent(geoLeft ? '正在標記位置…' : '這天還沒有可以顯示的位置').addTo(layer);
+  }
+  return pts;
+}
+
 /* ===================== 表單 ===================== */
 const F_DAY = [
   { k: 'date', l: '日期', t: 'date' }, { k: 'city', l: '所在城市', t: 'text' },
@@ -364,11 +568,13 @@ const F_DAY = [
 const F_SPOT = () => [
   { k: 'day_id', l: '屬於哪一天（改這裡就能移到別天）', t: 'select', full: 1, opts: days().map((d, i) => [d.id, `Day ${i + 1}・${fmtD(d.data.date)} ${d.data.title || ''}`]) },
   { k: 'time', l: '時間（例 09:30、上午）', t: 'text' }, { k: 'title', l: '景點／活動', t: 'text' },
-  { k: 'note', l: '備註', t: 'textarea', full: 1 }, { k: 'map_url', l: 'Google 地圖連結', t: 'url', full: 1 }];
+  { k: 'note', l: '備註', t: 'textarea', full: 1 }, { k: 'map_url', l: 'Google 地圖連結', t: 'url', full: 1 },
+  { k: 'geo_q', l: '地圖定位用地名（選填，英文/德文較準，例：Schloss Neuschwanstein）', t: 'text', full: 1 }];
 const F_STAY = [
   { k: 'city', l: '城市', t: 'text' }, { k: 'name', l: '飯店名稱', t: 'text' },
   { k: 'checkin', l: '入住日', t: 'date' }, { k: 'checkout', l: '退房日', t: 'date' },
   { k: 'address', l: '地址', t: 'text', full: 1 }, { k: 'map_url', l: 'Google 地圖連結', t: 'url', full: 1 },
+  { k: 'geo_q', l: '地圖定位用地名（選填；留空會用地址或飯店名稱）', t: 'text', full: 1 },
   { k: 'pdf_url', l: '訂房確認 PDF', t: 'file', name: 'pdf_name', full: 1 },
   { k: 'booking_url', l: '訂房網頁連結（Booking、Agoda…）', t: 'url', full: 1 },
   { k: 'confirmation', l: '訂房編號', t: 'text' }, { k: 'price', l: '價格', t: 'text' },
@@ -461,6 +667,12 @@ const ACT = {
   'edit-stay': id => { const it = byId(id); openForm('編輯住宿', F_STAY, it.data, d => save([{ ...it, data: d }]), () => removeItems([id])); },
   'add-trans': () => openForm('新增交通', F_TRANS, { type: 'train', booked: false }, d => save([{ id: uid(), kind: 'transport', sort: nextSort(trans()), data: d }])),
   'edit-trans': id => { const it = byId(id); openForm('編輯交通', F_TRANS, it.data, d => save([{ ...it, data: d }]), () => removeItems([id])); },
+  'map-fit': () => { mapViewKey = ''; render(); },
+  'spot-focus': id => {
+    const s = byId(id);
+    if (!located(s)) return toast('這個行程還沒有地圖位置，按「編輯」填地圖定位用地名');
+    if (MAP) { document.querySelector('.mapbox')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); MAP.flyTo([s.data.geo.lat, s.data.geo.lng], 15, { duration: .6 }); }
+  },
   'toggle-booked': id => { const it = byId(id); save([{ ...it, data: { ...it.data, booked: !it.data.booked } }]); toast(it.data.booked ? '改為未預訂' : '已標記為已預訂'); },
 };
 document.addEventListener('click', e => {
