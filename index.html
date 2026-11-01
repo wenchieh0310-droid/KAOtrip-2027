@@ -386,6 +386,7 @@ function vFood(d){
         ${safeUrl(x.link) ? `<a class="btn small" href="${esc(safeUrl(x.link))}" target="_blank" rel="noopener">🔗 網站/菜單</a>` : ''}
         <button class="btn small" data-act="food-to-spot" data-id="${f.id}">＋ 排進行程</button>
         <button class="btn small" data-act="edit-food" data-id="${f.id}">編輯／移到別天</button>
+        <button class="btn small" data-act="copy-food" data-id="${f.id}">⧉ 複製到別天</button>
       </div></div>`; }).join('') || `<div class="empty" style="padding:16px 10px">${all.length ? '這個分類沒有餐廳' : '先把想吃的餐廳放進來，再一起決定吃哪間'}</div>`}
   <button class="btn addbtn" data-act="add-food" data-id="${d.id}">＋ 新增餐廳</button>`;
 }
@@ -691,7 +692,7 @@ function openForm(title, fields, values, onSubmit, onDelete){
     let input;
     if (f.t === 'textarea') input = `<textarea name="${f.k}">${esc(v)}</textarea>`;
     else if (f.t === 'select') input = `<select name="${f.k}">${f.opts.map(([val, lab]) => `<option value="${esc(val)}" ${val === v ? 'selected' : ''}>${esc(lab)}</option>`).join('')}</select>`;
-    else if (f.t === 'check') return `<div class="f" style="display:flex;align-items:flex-end"><label class="check"><input type="checkbox" name="${f.k}" ${v ? 'checked' : ''}> ${f.l}</label></div>`;
+    else if (f.t === 'check') return `<div class="f" style="display:flex;align-items:flex-end;${f.full ? 'grid-column:1/-1;margin-bottom:8px' : ''}"><label class="check"><input type="checkbox" name="${f.k}" ${v ? 'checked' : ''}> ${f.l}</label></div>`;
     else if (f.t === 'file') input = `<input type="file" name="${f.k}" accept="application/pdf,image/*">
       ${safeUrl(v) ? `<div class="cur">目前：<a href="${esc(v)}" target="_blank" rel="noopener">${esc(values[f.name] || '已上傳的檔案')}</a>　<label style="display:inline;color:var(--danger)"><input type="checkbox" name="${f.k}__clear"> 移除</label></div>` : ''}
       <div class="cur" style="color:var(--muted)">也可以把雲端硬碟的分享連結貼在下方：</div>
@@ -755,6 +756,27 @@ const ACT = {
       const sort = d.day_id !== it.data.day_id ? nextSort(of('food').filter(f => f.data.day_id === d.day_id)) : it.sort;
       save([{ ...it, sort, data: d }]); if (d.day_id !== it.data.day_id) toast('已移到其他天');
     }, () => removeItems([id])); },
+  'copy-food': id => {
+    const f = byId(id), x = f.data, src = byId(x.day_id);
+    const cityOf = d => (d?.data.city || '').split(/[→⇄➔]/).map(s => s.trim()).filter(Boolean);
+    const srcCity = cityOf(src).at(-1);
+    const same = name => n => (n.data.name || '').trim().toLowerCase() === (name || '').trim().toLowerCase();
+    const targets = days().map((d, i) => ({ d, i })).filter(({ d }) => d.id !== x.day_id);
+    const fields = targets.map(({ d, i }) => {
+      const has = foodsOf(d.id).some(same(x.name));
+      return { k: 'd_' + d.id, t: 'check', full: 1, l: `Day ${i + 1}・${fmtD(d.data.date)} ${d.data.city || ''}${has ? '（已經有了）' : ''}` };
+    });
+    // 預設勾選同城市、還沒有這間餐廳的天
+    const init = {};
+    targets.forEach(({ d }) => { init['d_' + d.id] = !!srcCity && cityOf(d).includes(srcCity) && !foodsOf(d.id).some(same(x.name)); });
+    openForm(`複製「${x.name || '餐廳'}」到…`, fields, init, out => {
+      const picks = targets.filter(({ d }) => out['d_' + d.id] && !foodsOf(d.id).some(same(x.name)));
+      if (!picks.length) return toast('沒有選擇新的天數');
+      save(picks.map(({ d }) => ({ id: uid(), kind: 'food', sort: nextSort(of('food').filter(n => n.data.day_id === d.id)),
+        data: { ...x, day_id: d.id, picked: false, reserved: false } })));
+      toast(`已複製到 ${picks.length} 天（同城市的天已經先幫你勾好）`);
+    });
+  },
   'food-pick': id => { const it = byId(id); save([{ ...it, data: { ...it.data, picked: !it.data.picked } }]); toast(it.data.picked ? '取消選擇' : '⭐ 決定吃這間'); },
   'food-to-spot': id => {
     const f = byId(id), x = f.data;
