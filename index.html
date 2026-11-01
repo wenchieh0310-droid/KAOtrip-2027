@@ -98,6 +98,23 @@ h2.sec{font-family:'Noto Serif TC',serif;font-size:19px;margin:22px 0 12px;displ
 .pin{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:700 12px/22px 'Noto Sans TC',sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .pin.day{width:30px;height:30px;line-height:26px;background:var(--warm);font-size:13px}
 .pin.day.multi{white-space:nowrap;width:max-content;min-width:30px;padding:0 7px;border-radius:15px;font-size:12px;transform:translateX(calc(15px - 50%))}
+.pin.food{width:24px;height:24px;line-height:20px;font-size:12px;background:#fff;border-color:#8a8f96;opacity:.9}
+.pin.food.picked{border-color:var(--ok);background:var(--ok-soft);opacity:1}
+/* 餐廳備選 */
+.food{padding:12px 14px;scroll-margin-top:90px}
+.food.flash{animation:flash 1.4s ease}
+.food.picked{border-color:#b9dfc8;background:#f7fcf9}
+.food .name{font-weight:700}
+.food .meta{font-size:13px;color:var(--muted)}
+.food .note{font-size:14px;color:#46515b;white-space:pre-wrap;margin-top:2px}
+.food .acts{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.pickbtn{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:3px 10px;font-size:13px;cursor:pointer;white-space:nowrap;flex:none}
+.pickbtn.on{background:var(--ok);border-color:var(--ok);color:#fff;font-weight:700}
+.chip.meal{background:#eef0f7;color:#4a5280}
+.mealf{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;scrollbar-width:none}
+.mealf::-webkit-scrollbar{display:none}
+.mealf .btn{flex:none}
+.mealf .btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .pin.hotel{background:#fff;border-color:var(--warm);font-size:14px;line-height:22px}
 .leaflet-tooltip{font-family:'Noto Sans TC',sans-serif;font-size:12px;border-radius:8px;padding:3px 8px}
 .leaflet-container a.leaflet-popup-close-button{display:none}
@@ -216,7 +233,7 @@ class RemoteStore {
 
 /* ===================== 狀態 ===================== */
 let store, items = [];
-const ui = { tab: 'overview', dayId: null, filter: 'all' };
+const ui = { tab: 'overview', dayId: null, filter: 'all', meal: '' };
 const of = k => items.filter(i => i.kind === k);
 const meta = () => of('meta')[0];
 const days = () => of('day').sort((a, b) => (a.data.date || '').localeCompare(b.data.date || '') || a.sort - b.sort);
@@ -225,6 +242,9 @@ const stays = () => of('stay').sort((a, b) => (a.data.checkin || '').localeCompa
 const trans = () => of('transport').sort((a, b) => (a.data.date || '').localeCompare(b.data.date || '') || (a.data.depart || '').localeCompare(b.data.depart || '') || a.sort - b.sort);
 const stayFor = date => stays().find(s => s.data.checkin && s.data.checkout && s.data.checkin <= date && date < s.data.checkout);
 const byId = id => items.find(i => i.id === id);
+const MEALS = ['早餐', '午餐', '晚餐', '咖啡甜點', '宵夜／酒吧', '其他'];
+const foodsOf = dayId => of('food').filter(f => f.data.day_id === dayId)
+  .sort((a, b) => (b.data.picked ? 1 : 0) - (a.data.picked ? 1 : 0) || MEALS.indexOf(a.data.meal) - MEALS.indexOf(b.data.meal) || a.sort - b.sort);
 
 async function save(arr){
   arr.forEach(it => { const i = items.findIndex(x => x.id === it.id); i >= 0 ? items[i] = it : items.push(it); });
@@ -286,7 +306,7 @@ function vOverview(){
       <div class="dnum"><small>DAY</small><b>${i + 1}</b><small>${fmtD(d.data.date)}（${wd(d.data.date)}）</small></div>
       <div class="dbody">
         <p class="dtitle">${esc(d.data.title || '未命名')}</p>
-        <div class="dmeta">🛏 ${esc(d.data.sleep || (st ? st.data.name || st.data.city : '未填'))}・${n} 個行程</div>
+        <div class="dmeta">🛏 ${esc(d.data.sleep || (st ? st.data.name || st.data.city : '未填'))}・${n} 個行程${(() => { const fs = foodsOf(d.id); return fs.length ? `・🍽 ${fs.length} 間備選` : ''; })()}</div>
         <div class="chips">
           ${d.data.city ? `<span class="chip city">${esc(d.data.city)}</span>` : ''}
           ${dt.map(t => `<span class="chip ${t.data.booked ? 'ok' : 'todo'}">${(TYPES[t.data.type] || '📍').split(' ')[0]} ${esc(t.data.from)}→${esc(t.data.to)} ${t.data.booked ? '已訂' : '未訂'}</span>`).join('')}
@@ -333,7 +353,41 @@ function vDay(){
         <button class="btn small" data-act="edit-spot" data-id="${s.id}">編輯／移到別天</button>
       </div></div>`).join('') || '<div class="empty">這天還沒有細節行程</div>'}
   </div>
-  <button class="btn addbtn" data-act="add-spot" data-id="${d.id}">＋ 新增行程</button>`;
+  <button class="btn addbtn" data-act="add-spot" data-id="${d.id}">＋ 新增行程</button>
+  ${vFood(d)}`;
+}
+
+function vFood(d){
+  const all = foodsOf(d.id);
+  const meals = MEALS.filter(m => all.some(f => f.data.meal === m));
+  const list = all.filter(f => !ui.meal || f.data.meal === ui.meal);
+  const picked = all.filter(f => f.data.picked).length;
+  return `
+  <h2 class="sec">🍽 餐廳備選 <span class="label">${all.length} 間${picked ? `・已決定 ${picked}` : ''}</span></h2>
+  ${meals.length > 1 ? `<div class="mealf">${[['', '全部'], ...meals.map(m => [m, m])].map(([k, l]) =>
+      `<button class="btn small ${(ui.meal || '') === k ? 'on' : ''}" data-act="meal-filter" data-v="${esc(k)}">${esc(l)}</button>`).join('')}</div>` : ''}
+  ${list.map(f => { const x = f.data; return `<div class="card food ${x.picked ? 'picked' : ''}" id="food-${f.id}">
+      <div class="row" style="align-items:flex-start">
+        <div style="min-width:0">
+          <div class="name">${esc(x.name || '未命名')}</div>
+          <div class="chips" style="margin-top:4px">
+            ${x.meal ? `<span class="chip meal">${esc(x.meal)}</span>` : ''}
+            ${x.cuisine ? `<span class="chip">${esc(x.cuisine)}</span>` : ''}
+            ${x.price ? `<span class="chip">${esc(x.price)}</span>` : ''}
+            ${x.reserve ? `<span class="chip ${x.reserved ? 'ok' : 'todo'}">${x.reserved ? '已訂位' : '需訂位・未訂'}</span>` : ''}
+          </div>
+        </div>
+        <button class="pickbtn ${x.picked ? 'on' : ''}" data-act="food-pick" data-id="${f.id}">${x.picked ? '⭐ 就吃這間' : '☆ 選這間'}</button>
+      </div>
+      ${x.hours ? `<div class="meta" style="margin-top:6px">🕒 ${esc(x.hours)}</div>` : ''}
+      ${x.note ? `<div class="note">${esc(x.note)}</div>` : ''}
+      <div class="acts">
+        ${safeUrl(x.map_url) ? `<a class="btn small" href="${esc(safeUrl(x.map_url))}" target="_blank" rel="noopener">📍 地圖</a>` : `<a class="btn small" href="${esc(mapSearch((x.name || '') + ' ' + (d.data.city || '').split(/[→⇄➔]/).pop().trim()))}" target="_blank" rel="noopener">📍 搜尋</a>`}
+        ${safeUrl(x.link) ? `<a class="btn small" href="${esc(safeUrl(x.link))}" target="_blank" rel="noopener">🔗 網站/菜單</a>` : ''}
+        <button class="btn small" data-act="food-to-spot" data-id="${f.id}">＋ 排進行程</button>
+        <button class="btn small" data-act="edit-food" data-id="${f.id}">編輯／移到別天</button>
+      </div></div>`; }).join('') || `<div class="empty" style="padding:16px 10px">${all.length ? '這個分類沒有餐廳' : '先把想吃的餐廳放進來，再一起決定吃哪間'}</div>`}
+  <button class="btn addbtn" data-act="add-food" data-id="${d.id}">＋ 新增餐廳</button>`;
 }
 
 function vStays(){
@@ -414,6 +468,11 @@ function geoKey(it){
   if (x.geo_q) return pick(x.geo_q.trim());
   const c = coordsFromUrl(x.map_url); if (c) return pick('', c);
   const q = queryFromUrl(x.map_url); if (q) return pick(q);
+  if (it.kind === 'food') {
+    if (x.address) return pick(x.address);
+    const day = byId(x.day_id);
+    return pick(x.name ? [x.name, (day?.data.city || '').split(/[→⇄➔]/).pop().trim()].filter(Boolean).join(' ') : '');
+  }
   if (it.kind === 'spot') {
     if (!safeUrl(x.map_url)) return pick('');           // 沒有地圖連結的（例如「入住飯店」）不猜位置
     const day = byId(x.day_id);
@@ -440,7 +499,7 @@ async function geoRun(){
   geoBusy = true;
   try {
     for (;;) {
-      const todo = items.filter(it => it.kind === 'spot' || it.kind === 'stay')
+      const todo = items.filter(it => it.kind === 'spot' || it.kind === 'stay' || it.kind === 'food')
         .map(it => [it, geoKey(it)])
         .filter(([it, k]) => k.key && it.data.geo?.k !== k.key && !geoTried.has(it.id + k.key));
       geoLeft = todo.length; updateMapNote();
@@ -452,7 +511,7 @@ async function geoRun(){
       else {
         let r = await nominatim(k.q);
         const words = k.q.split(/\s+/);
-        if (!r && words.length >= 3) { await sleep(1100); r = await nominatim(words.slice(0, -1).join(' ')); }
+        if (!r && words.length >= 2) { await sleep(1100); r = await nominatim(words.slice(0, -1).join(' ')); }
         geo = r ? { ...r, k: k.key } : { fail: true, k: k.key };
         await sleep(1100);                                  // OpenStreetMap 規定每秒最多 1 次
       }
@@ -564,6 +623,21 @@ function buildDayMap(layer){
     L.marker(ll(st), { icon: pinIcon('🏨', 'hotel') }).bindTooltip(esc(st.data.name || st.data.city || '住宿'), { direction: 'top', offset: [0, -14] }).addTo(layer);
     pts.push(ll(st));
   }
+  foodsOf(d.id).forEach(f => {
+    if (!located(f)) return;
+    const m = L.marker(ll(f), { icon: pinIcon('🍴', 'food' + (f.data.picked ? ' picked' : '')), draggable: true, zIndexOffset: f.data.picked ? 90 : 0 })
+      .bindTooltip(`${f.data.picked ? '⭐ ' : ''}${esc(f.data.name || '')}${f.data.meal ? '（' + esc(f.data.meal) + '）' : ''}`, { direction: 'top', offset: [0, -12] }).addTo(layer);
+    m.on('click', () => {
+      const card = document.getElementById('food-' + f.id);
+      if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+    });
+    m.on('dragend', () => {
+      const cur = byId(f.id), g = m.getLatLng();
+      save([{ ...cur, data: { ...cur.data, geo: { lat: g.lat, lng: g.lng, k: geoKey(cur).key, manual: true } } }]);
+      toast('已更新「' + (cur.data.name || '') + '」的位置');
+    });
+    pts.push(ll(f));
+  });
   if (!pts.length) {
     L.tooltip({ permanent: true, direction: 'center' }).setLatLng(MAP.getCenter())
       .setContent(geoLeft ? '正在標記位置…' : '這天還沒有可以顯示的位置').addTo(layer);
@@ -581,6 +655,15 @@ const F_SPOT = () => [
   { k: 'time', l: '時間（例 09:30、上午）', t: 'text' }, { k: 'title', l: '景點／活動', t: 'text' },
   { k: 'note', l: '備註', t: 'textarea', full: 1 }, { k: 'map_url', l: 'Google 地圖連結', t: 'url', full: 1 },
   { k: 'geo_q', l: '地圖定位用地名（選填，英文/德文較準，例：Schloss Neuschwanstein）', t: 'text', full: 1 }];
+const F_FOOD = () => [
+  { k: 'day_id', l: '放在哪一天（改這裡就能移到別天）', t: 'select', full: 1, opts: days().map((d, i) => [d.id, `Day ${i + 1}・${fmtD(d.data.date)} ${d.data.title || ''}`]) },
+  { k: 'name', l: '餐廳名稱', t: 'text', full: 1 },
+  { k: 'meal', l: '哪一餐', t: 'select', opts: [['', '未分類'], ...MEALS.map(m => [m, m])] }, { k: 'cuisine', l: '類型（例：烤豬腳、咖啡廳）', t: 'text' },
+  { k: 'price', l: '價位（例：€€、每人 €25）', t: 'text' }, { k: 'hours', l: '營業時間／公休', t: 'text' },
+  { k: 'map_url', l: 'Google 地圖連結', t: 'url', full: 1 }, { k: 'link', l: '網站／菜單／訂位連結', t: 'url', full: 1 },
+  { k: 'reserve', l: '需要訂位', t: 'check' }, { k: 'reserved', l: '已經訂好位', t: 'check' },
+  { k: 'note', l: '備註（推薦菜色、誰想吃、評價…）', t: 'textarea', full: 1 },
+  { k: 'address', l: '地址（選填，地圖定位用）', t: 'text', full: 1 }];
 const F_STAY = [
   { k: 'city', l: '城市', t: 'text' }, { k: 'name', l: '飯店名稱', t: 'text' },
   { k: 'checkin', l: '入住日', t: 'date' }, { k: 'checkout', l: '退房日', t: 'date' },
@@ -651,8 +734,8 @@ const ACT = {
   'filter': (_, v) => { ui.filter = v; render(); },
   'refresh': () => { reload(); toast('已更新'); },
   'logout': () => { localStorage.removeItem(LS_KEY); location.reload(); },
-  'goto-day': id => { ui.dayId = id; ui.tab = 'day'; render(); scrollTo(0, 0); },
-  'pick-day': id => { ui.dayId = id; render(); },
+  'goto-day': id => { ui.dayId = id; ui.tab = 'day'; ui.meal = ''; render(); scrollTo(0, 0); },
+  'pick-day': id => { ui.dayId = id; ui.meal = ''; render(); },
   'import-seed': () => { if (confirm('匯入初始行程？')) save(buildSeed()); },
   'edit-meta': () => { const m = meta() || { id: uid(), kind: 'meta', sort: 0, data: {} }; openForm('編輯旅程標題', F_META, m.data, d => save([{ ...m, data: d }])); },
   'add-day': () => {
@@ -661,7 +744,27 @@ const ACT = {
     openForm('新增一天', F_DAY, { date: nd }, d => { const it = { id: uid(), kind: 'day', sort: nextSort(ds), data: d }; ui.dayId = it.id; save([it]); });
   },
   'edit-day': id => { const it = byId(id); openForm('編輯這一天', F_DAY, it.data, d => save([{ ...it, data: d }]),
-      () => removeItems([id, ...spotsOf(id).map(s => s.id)])); },
+      () => removeItems([id, ...spotsOf(id).map(s => s.id), ...foodsOf(id).map(f => f.id)])); },
+  'meal-filter': (_, v) => { ui.meal = v || ''; render(); },
+  'add-food': dayId => openForm('新增餐廳', F_FOOD(), { day_id: dayId, meal: ui.meal || '' }, d => {
+      if (!d.name) return toast('請填餐廳名稱');
+      save([{ id: uid(), kind: 'food', sort: nextSort(of('food').filter(f => f.data.day_id === d.day_id)), data: d }]);
+      if (d.day_id !== dayId) toast('已加到其他天');
+    }),
+  'edit-food': id => { const it = byId(id); openForm('編輯餐廳', F_FOOD(), it.data, d => {
+      const sort = d.day_id !== it.data.day_id ? nextSort(of('food').filter(f => f.data.day_id === d.day_id)) : it.sort;
+      save([{ ...it, sort, data: d }]); if (d.day_id !== it.data.day_id) toast('已移到其他天');
+    }, () => removeItems([id])); },
+  'food-pick': id => { const it = byId(id); save([{ ...it, data: { ...it.data, picked: !it.data.picked } }]); toast(it.data.picked ? '取消選擇' : '⭐ 決定吃這間'); },
+  'food-to-spot': id => {
+    const f = byId(id), x = f.data;
+    const spot = { id: uid(), kind: 'spot', sort: nextSort(spotsOf(x.day_id)), data: {
+      day_id: x.day_id, time: x.meal && x.meal !== '其他' ? x.meal : '', title: '🍽 ' + (x.name || ''),
+      note: [x.cuisine, x.reserve ? (x.reserved ? '已訂位' : '需訂位') : '', x.note].filter(Boolean).join('・'),
+      map_url: x.map_url || '', geo_q: x.address || (x.map_url ? '' : geoKey(f).q || '') } };
+    save([spot, { ...f, data: { ...x, picked: true } }]);
+    toast('已排進行程（放在最後，可以用 ↑↓ 調整順序）');
+  },
   'add-spot': dayId => openForm('新增行程', F_SPOT(), { day_id: dayId }, d => save([{ id: uid(), kind: 'spot', sort: nextSort(spotsOf(d.day_id)), data: d }])),
   'edit-spot': id => { const it = byId(id); openForm('編輯行程', F_SPOT(), it.data, d => {
       const sort = d.day_id !== it.data.day_id ? nextSort(spotsOf(d.day_id)) : it.sort;
